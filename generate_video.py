@@ -20,6 +20,14 @@ try:
 except ImportError:
     PIL_AVAILABLE = False
 
+try:
+    import imageio
+    IMAGEIO_AVAILABLE = True
+except ImportError:
+    IMAGEIO_AVAILABLE = False
+
+import math
+
 load_dotenv()
 
 class VideoGenerator:
@@ -138,68 +146,119 @@ class VideoGenerator:
         print(f"✅ Metadatos guardados: {metadata_path}")
         return True
 
-    def _generate_animated_video(self, text: str, output_path: str) -> bool:
-        """Generate animated video using PIL"""
-        try:
-            print(f"📹 Generando vídeo animado...")
+    def _draw_avatar(self, draw, face_x, face_y, mouth_openness=0):
+        """Draw animated avatar of a woman"""
+        head_radius = 120
 
-            frames = []
+        # Hair - brown
+        draw.ellipse([face_x - head_radius - 20, face_y - head_radius - 30,
+                     face_x + head_radius + 20, face_y + head_radius],
+                    fill=(139, 69, 19))
+
+        # Face - skin tone
+        draw.ellipse([face_x - head_radius, face_y - head_radius,
+                     face_x + head_radius, face_y + head_radius],
+                    fill=(255, 200, 170))
+
+        # Eyes
+        eye_y = face_y - 40
+        draw.ellipse([face_x - 60, eye_y - 20, face_x - 20, eye_y + 20],
+                    fill="white", outline="black", width=2)
+        draw.ellipse([face_x + 20, eye_y - 20, face_x + 60, eye_y + 20],
+                    fill="white", outline="black", width=2)
+
+        # Iris - blue
+        draw.ellipse([face_x - 50, eye_y - 10, face_x - 30, eye_y + 10],
+                    fill=(70, 130, 180))
+        draw.ellipse([face_x + 30, eye_y - 10, face_x + 50, eye_y + 10],
+                    fill=(70, 130, 180))
+
+        # Pupils
+        draw.ellipse([face_x - 45, eye_y - 5, face_x - 35, eye_y + 5], fill="black")
+        draw.ellipse([face_x + 35, eye_y - 5, face_x + 45, eye_y + 5], fill="black")
+
+        # Eye shine
+        draw.ellipse([face_x - 42, eye_y - 2, face_x - 38, eye_y + 2], fill="white")
+        draw.ellipse([face_x + 38, eye_y - 2, face_x + 42, eye_y + 2], fill="white")
+
+        # Nose
+        draw.polygon([(face_x, face_y - 10), (face_x - 10, face_y + 15), (face_x + 10, face_y + 15)],
+                    fill=(220, 150, 130))
+
+        # Mouth - animated
+        mouth_y = face_y + 60
+        if mouth_openness > 10:
+            draw.ellipse([face_x - 50, mouth_y - mouth_openness,
+                         face_x + 50, mouth_y + mouth_openness],
+                        fill=(200, 80, 80), outline="darkred", width=2)
+        else:
+            draw.arc([face_x - 50, mouth_y - 10, face_x + 50, mouth_y + 20],
+                    0, 180, fill="darkred", width=3)
+
+        # Blush
+        draw.ellipse([face_x - 130, face_y + 30, face_x - 90, face_y + 60],
+                    fill=(255, 150, 150))
+        draw.ellipse([face_x + 90, face_y + 30, face_x + 130, face_y + 60],
+                    fill=(255, 150, 150))
+
+    def _generate_animated_video(self, text: str, output_path: str) -> bool:
+        """Generate animated video with avatar using PIL and imageio"""
+        try:
+            print(f"📹 Generando vídeo con avatar...")
+
             width, height = 1280, 720
+            frames_dir = self.output_dir / "frames_temp"
+            frames_dir.mkdir(exist_ok=True)
 
             try:
-                font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
-                font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 40)
-                font_text = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 45)
             except:
-                font_large = font_medium = font_text = ImageFont.load_default()
+                font = ImageFont.load_default()
 
-            # Frame 1: Intro
-            img = Image.new('RGB', (width, height), (30, 30, 50))
-            draw = ImageDraw.Draw(img)
-            for i in range(height):
-                intensity = int(30 + (i / height) * 40)
-                draw.line([(0, i), (width, i)], fill=(intensity, intensity, intensity + 50))
-            draw.text((width//2 - 500, height//2 - 150), "AVATAR IA", fill=(100, 200, 255), font=font_large)
-            draw.text((width//2 - 400, height//2 + 100), "Generando Video", fill=(150, 220, 255), font=font_medium)
-            frames.append(img.copy())
+            # Generate 300 frames for 12-second video at 25fps
+            for frame_idx in range(300):
+                if frame_idx % 75 == 0:
+                    print(f"  Frame {frame_idx}/300...")
 
-            # Frame 2-3: Speaking
-            img = Image.new('RGB', (width, height), (30, 30, 50))
-            draw = ImageDraw.Draw(img)
-            for i in range(height):
-                intensity = int(35 + (i / height) * 35)
-                draw.line([(0, i), (width, i)], fill=(intensity + 10, intensity, intensity + 30))
+                img = Image.new('RGB', (width, height), (240, 248, 255))
+                draw = ImageDraw.Draw(img)
 
-            mouth_y = height // 2 + 80
-            for j in range(3):
-                radius = 15 + j * 5
-                draw.ellipse([width//2 - radius, mouth_y - radius, width//2 + radius, mouth_y + radius],
-                           outline=(100, 200, 255), width=2)
+                # Background gradient
+                for y in range(height):
+                    intensity = int(100 + (y / height) * 50)
+                    draw.line([(0, y), (width, y)], fill=(intensity, intensity + 50, 200))
 
-            draw.text((width//2 - 400, height//2 - 150), text[:30], fill=(200, 220, 255), font=font_text)
-            frames.append(img.copy())
-            frames.append(img.copy())
+                # Animate mouth
+                mouth = 5 + 12 * abs(math.sin(frame_idx * 0.15))
+                self._draw_avatar(draw, 640, 280, mouth_openness=mouth)
 
-            # Frame 4: Success
-            img = Image.new('RGB', (width, height), (30, 50, 30))
-            draw = ImageDraw.Draw(img)
-            for i in range(height):
-                intensity = int(30 + (i / height) * 40)
-                draw.line([(0, i), (width, i)], fill=(intensity, intensity + 50, intensity))
+                # Add text
+                if frame_idx < 60:
+                    display_text = "¡Hola! Soy tu asistente IA"
+                elif frame_idx < 240:
+                    words = text.split()
+                    words_count = int((frame_idx - 60) / 180 * len(words)) + 1
+                    display_text = " ".join(words[:words_count])
+                else:
+                    display_text = "¡Gracias!"
 
-            draw.text((width//2 - 300, height//2 - 150), "✓", fill=(100, 255, 100), font=font_large)
-            draw.text((width//2 - 450, height//2 + 100), "Video Listo!", fill=(150, 255, 150), font=font_medium)
-            frames.append(img.copy())
+                draw.text((640, 600), display_text, fill=(50, 50, 50), font=font, anchor="mm")
+                img.save(frames_dir / f"frame_{frame_idx:04d}.png")
 
-            # Save as GIF
-            gif_path = output_path.replace('.mp4', '.gif')
-            frames[0].save(gif_path, save_all=True, append_images=frames[1:],
-                          duration=[2000, 1500, 1500, 2000], loop=0)
+            if IMAGEIO_AVAILABLE:
+                print("🎬 Compilando MP4...")
+                frames_list = sorted(frames_dir.glob("frame_*.png"))
+                frames = [imageio.imread(str(f)) for f in frames_list]
+                mp4_path = output_path if output_path.endswith('.mp4') else output_path.replace('.gif', '.mp4')
+                imageio.mimwrite(mp4_path, frames, fps=25)
+                print(f"✅ Vídeo generado: {mp4_path}")
+                return True
+            else:
+                print("⚠️  imageio no disponible")
+                return False
 
-            print(f"✅ Vídeo generado: {gif_path}")
-            return True
         except Exception as e:
-            print(f"❌ Error generando vídeo: {e}")
+            print(f"❌ Error: {e}")
             return False
 
     def generate(self, text: str, voice: str = "es-ES", output_file: Optional[str] = None) -> str:
