@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.env
+.env.local
+videos/
+*.mp4
+*.mov
+*.avi
+.DS_Store
+.vscode/
+.idea/
+*.log
