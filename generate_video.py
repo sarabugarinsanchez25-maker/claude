@@ -14,6 +14,12 @@ from typing import Optional
 import requests
 from dotenv import load_dotenv
 
+try:
+    from PIL import Image, ImageDraw, ImageFont
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+
 load_dotenv()
 
 class VideoGenerator:
@@ -104,6 +110,9 @@ class VideoGenerator:
 
     def generate_demo_structure(self, text: str, output_path: str) -> bool:
         """Generate demo video structure (without API)"""
+        if PIL_AVAILABLE:
+            return self._generate_animated_video(text, output_path)
+
         print(f"📹 Generando estructura demo de vídeo...")
         print(f"Texto: {text}")
         print(f"\n✨ Vídeo generaría:")
@@ -128,6 +137,70 @@ class VideoGenerator:
 
         print(f"✅ Metadatos guardados: {metadata_path}")
         return True
+
+    def _generate_animated_video(self, text: str, output_path: str) -> bool:
+        """Generate animated video using PIL"""
+        try:
+            print(f"📹 Generando vídeo animado...")
+
+            frames = []
+            width, height = 1280, 720
+
+            try:
+                font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
+                font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 40)
+                font_text = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
+            except:
+                font_large = font_medium = font_text = ImageFont.load_default()
+
+            # Frame 1: Intro
+            img = Image.new('RGB', (width, height), (30, 30, 50))
+            draw = ImageDraw.Draw(img)
+            for i in range(height):
+                intensity = int(30 + (i / height) * 40)
+                draw.line([(0, i), (width, i)], fill=(intensity, intensity, intensity + 50))
+            draw.text((width//2 - 500, height//2 - 150), "AVATAR IA", fill=(100, 200, 255), font=font_large)
+            draw.text((width//2 - 400, height//2 + 100), "Generando Video", fill=(150, 220, 255), font=font_medium)
+            frames.append(img.copy())
+
+            # Frame 2-3: Speaking
+            img = Image.new('RGB', (width, height), (30, 30, 50))
+            draw = ImageDraw.Draw(img)
+            for i in range(height):
+                intensity = int(35 + (i / height) * 35)
+                draw.line([(0, i), (width, i)], fill=(intensity + 10, intensity, intensity + 30))
+
+            mouth_y = height // 2 + 80
+            for j in range(3):
+                radius = 15 + j * 5
+                draw.ellipse([width//2 - radius, mouth_y - radius, width//2 + radius, mouth_y + radius],
+                           outline=(100, 200, 255), width=2)
+
+            draw.text((width//2 - 400, height//2 - 150), text[:30], fill=(200, 220, 255), font=font_text)
+            frames.append(img.copy())
+            frames.append(img.copy())
+
+            # Frame 4: Success
+            img = Image.new('RGB', (width, height), (30, 50, 30))
+            draw = ImageDraw.Draw(img)
+            for i in range(height):
+                intensity = int(30 + (i / height) * 40)
+                draw.line([(0, i), (width, i)], fill=(intensity, intensity + 50, intensity))
+
+            draw.text((width//2 - 300, height//2 - 150), "✓", fill=(100, 255, 100), font=font_large)
+            draw.text((width//2 - 450, height//2 + 100), "Video Listo!", fill=(150, 255, 150), font=font_medium)
+            frames.append(img.copy())
+
+            # Save as GIF
+            gif_path = output_path.replace('.mp4', '.gif')
+            frames[0].save(gif_path, save_all=True, append_images=frames[1:],
+                          duration=[2000, 1500, 1500, 2000], loop=0)
+
+            print(f"✅ Vídeo generado: {gif_path}")
+            return True
+        except Exception as e:
+            print(f"❌ Error generando vídeo: {e}")
+            return False
 
     def generate(self, text: str, voice: str = "es-ES", output_file: Optional[str] = None) -> str:
         """Generate video"""
