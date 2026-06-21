@@ -3,8 +3,6 @@ name: Deploy StoryVerse
 on:
   push:
     branches: [claude/storyverse-mvp-oft6yf]
-    paths:
-      - storyverse/**
 
 jobs:
   build-and-deploy:
